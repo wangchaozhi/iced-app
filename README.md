@@ -42,15 +42,37 @@ cargo build --release
 
 ## 项目结构
 
+项目采用模块化组织，职责清晰分层：
+
 ```
 ├── assets/
 │   ├── NotoColorEmoji-Regular.ttf   # Emoji 字体
 │   └── NotoSansSC-Regular.otf       # 思源黑体
 ├── src/
-│   └── main.rs                      # 应用主入口
+│   ├── main.rs                      # 入口：iced 应用初始化、字体装配
+│   ├── app.rs                       # LoginApp：状态、update 逻辑、view 聚合
+│   ├── message.rs                   # Message / Status 类型定义
+│   ├── services.rs                  # 异步业务层（模拟登录等）
+│   ├── fonts.rs                     # 嵌入字体常量与默认字体名
+│   └── views/
+│       ├── mod.rs                   # 视图模块入口
+│       └── login.rs                 # 登录界面组件（顶栏/输入/按钮/底栏）
 ├── Cargo.toml
 └── Cargo.lock
 ```
+
+### 模块职责
+
+| 模块 | 说明 |
+|------|------|
+| `main` | 仅负责应用启动、窗口/主题/字体等全局配置 |
+| `app` | 应用状态 `LoginApp` 与 `update` 消息处理 |
+| `message` | `Message` 枚举与 `Status` 状态定义 |
+| `services` | 异步业务接口（当前为 `fake_login`，后续接入真实后端） |
+| `views::login` | 登录卡片 UI 构建，拆分为多个小函数便于维护 |
+| `fonts` | 编译期嵌入的字体字节与默认字体族名 |
+
+新增页面时：在 `views/` 下新建模块并在 `app::view` 中分发即可。
 
 ## 测试登录
 
