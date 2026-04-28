@@ -17,6 +17,7 @@ fn main() -> iced::Result {
         .theme(LoginApp::theme)
         .window_size((420.0, 560.0))
         .centered()
+        .decorations(false)
         .font(NOTO_SANS_SC)
         .font(NOTO_COLOR_EMOJI)
         .default_font(iced::Font::with_name("Noto Sans SC"))
@@ -33,6 +34,7 @@ enum Message {
     LoginFinished(Result<String, String>),
     ToggleTheme,
     ClearError,
+    CloseWindow,
 }
 
 #[derive(Default)]
@@ -103,6 +105,7 @@ impl LoginApp {
                 self.status = Status::Idle;
                 Task::none()
             }
+            Message::CloseWindow => iced::exit(),
             Message::LoginPressed => {
                 if self.username.trim().is_empty() || self.password.is_empty() {
                     self.status = Status::Failed("用户名和密码不能为空".into());
@@ -124,6 +127,14 @@ impl LoginApp {
     }
 
     fn view(&self) -> Element<'_, Message> {
+        let close_btn = button(text("✕").size(16))
+            .on_press(Message::CloseWindow)
+            .padding([2, 8])
+            .style(button::text);
+
+        let top_bar = row![Space::new().width(Length::Fill), close_btn]
+            .align_y(Vertical::Center);
+
         let title = text("欢迎回来")
             .size(32)
             .align_x(Horizontal::Center)
@@ -233,6 +244,7 @@ impl LoginApp {
         .align_y(Vertical::Center);
 
         let card_content = column![
+            top_bar,
             title,
             subtitle,
             Space::new().height(24),
