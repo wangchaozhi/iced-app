@@ -1,6 +1,6 @@
 #![windows_subsystem = "windows"] // 发布时隐藏控制台（调试时可注释）
 
-use iced::widget::{button, column, container, row, text, text_input, Space};
+use iced::widget::{button, column, container, mouse_area, row, text, text_input, Space};
 use iced::{
     alignment::{Horizontal, Vertical},
     Background, Border, Color, Element, Length, Shadow, Task, Theme, Vector,
@@ -15,7 +15,7 @@ fn main() -> iced::Result {
     iced::application(LoginApp::default, LoginApp::update, LoginApp::view)
         .title("登录 - Rust GUI")
         .theme(LoginApp::theme)
-        .window_size((420.0, 560.0))
+        .window_size((380.0, 540.0))
         .centered()
         .decorations(false)
         .font(NOTO_SANS_SC)
@@ -35,6 +35,7 @@ enum Message {
     ToggleTheme,
     ClearError,
     CloseWindow,
+    StartDrag,
 }
 
 #[derive(Default)]
@@ -106,6 +107,9 @@ impl LoginApp {
                 Task::none()
             }
             Message::CloseWindow => iced::exit(),
+            Message::StartDrag => {
+                iced::window::latest().and_then(iced::window::drag)
+            }
             Message::LoginPressed => {
                 if self.username.trim().is_empty() || self.password.is_empty() {
                     self.status = Status::Failed("用户名和密码不能为空".into());
@@ -281,13 +285,14 @@ impl LoginApp {
                 }
             });
 
-        container(card)
+        let page = container(card)
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x(Length::Fill)
             .center_y(Length::Fill)
-            .padding(20)
-            .into()
+            .padding(8);
+
+        mouse_area(page).on_press(Message::StartDrag).into()
     }
 }
 
