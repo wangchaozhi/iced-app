@@ -1,9 +1,9 @@
 #![windows_subsystem = "windows"] // 发布时隐藏控制台（调试时可注释）
 
-use iced::widget::{button, column, container, mouse_area, row, text, text_input, Space};
+use iced::widget::{button, column, container, mouse_area, row, stack, text, text_input, Space};
 use iced::{
     alignment::{Horizontal, Vertical},
-    Background, Border, Color, Element, Length, Shadow, Task, Theme, Vector,
+    Background, Border, Color, Element, Length, Task, Theme,
 };
 
 // 嵌入中文字体（思源黑体 Noto Sans SC），编译时打包进二进制
@@ -12,12 +12,23 @@ const NOTO_SANS_SC: &[u8] = include_bytes!("../assets/NotoSansSC-Regular.otf");
 const NOTO_COLOR_EMOJI: &[u8] = include_bytes!("../assets/NotoColorEmoji-Regular.ttf");
 
 fn main() -> iced::Result {
+    // 优先使用 Vulkan/GL 后端，因为 Windows 下 DX12 wgpu 通常只提供 CompositeAlphaMode::Auto，
+    // 无法真正透明，导致圆角外的区域变黑。
+    if std::env::var_os("WGPU_BACKEND").is_none() {
+        std::env::set_var("WGPU_BACKEND", "vulkan,gl,dx12");
+    }
+
     iced::application(LoginApp::default, LoginApp::update, LoginApp::view)
         .title("登录 - Rust GUI")
         .theme(LoginApp::theme)
-        .window_size((380.0, 540.0))
+        .style(|_state, _theme| iced::theme::Style {
+            background_color: Color::TRANSPARENT,
+            text_color: Color::WHITE,
+        })
+        .window_size((380.0, 560.0))
         .centered()
         .decorations(false)
+        .transparent(true)
         .font(NOTO_SANS_SC)
         .font(NOTO_COLOR_EMOJI)
         .default_font(iced::Font::with_name("Noto Sans SC"))
@@ -162,7 +173,12 @@ impl LoginApp {
             let mut input = text_input("密码", &self.password)
                 .on_input(Message::PasswordChanged)
                 .on_submit(Message::LoginPressed)
-                .padding(12)
+                .padding(iced::Padding {
+                    top: 12.0,
+                    right: 44.0,
+                    bottom: 12.0,
+                    left: 12.0,
+                })
                 .size(15);
             if !self.password_visible {
                 input = input.secure(true);
@@ -172,12 +188,17 @@ impl LoginApp {
 
         let eye_btn = button(text(if self.password_visible { "🙈" } else { "👁" }).size(16))
             .on_press(Message::TogglePasswordVisible)
-            .padding([8, 12])
+            .padding([4, 8])
             .style(button::text);
 
-        let password_row = row![password_input, eye_btn]
-            .spacing(6)
-            .align_y(Vertical::Center);
+        let eye_overlay = container(eye_btn)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Horizontal::Right)
+            .align_y(Vertical::Center)
+            .padding([0, 4]);
+
+        let password_row = stack![password_input, eye_overlay];
 
         let remember = row![
             iced::widget::checkbox(self.remember_me)
@@ -266,7 +287,8 @@ impl LoginApp {
         .width(Length::Fill);
 
         let card = container(card_content)
-            .width(360)
+            .width(Length::Fill)
+            .height(Length::Fill)
             .style(|theme: &Theme| {
                 let palette = theme.extended_palette();
                 container::Style {
@@ -276,11 +298,6 @@ impl LoginApp {
                         width: 1.0,
                         radius: 16.0.into(),
                     },
-                    shadow: Shadow {
-                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.25),
-                        offset: Vector::new(0.0, 8.0),
-                        blur_radius: 24.0,
-                    },
                     ..Default::default()
                 }
             });
@@ -288,9 +305,7 @@ impl LoginApp {
         let page = container(card)
             .width(Length::Fill)
             .height(Length::Fill)
-            .center_x(Length::Fill)
-            .center_y(Length::Fill)
-            .padding(8);
+            .padding(2);
 
         mouse_area(page).on_press(Message::StartDrag).into()
     }
