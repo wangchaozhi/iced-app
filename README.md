@@ -112,12 +112,18 @@ cargo build --release
 
 ## 发布 Release
 
-推送形如 `v0.1.0` 的 Git tag 即可触发 [release.yml](.github/workflows/release.yml)，自动构建三平台产物并上传到 GitHub Releases：
+支持两种触发方式，均会自动构建三平台产物并上传到 GitHub Releases：
+
+**1. 打 tag 触发（推荐）**
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+**2. 手动触发**
+
+进入 GitHub 仓库 → Actions → Release → Run workflow，填写版本号（如 `v0.1.0`）并可选勾选预发布，提交后工作流会自动创建同名 tag 并发布 Release。
 
 产物命名规则：
 

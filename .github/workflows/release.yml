@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '发布版本号（例如 v0.1.0）'
+        required: true
+        type: string
+      prerelease:
+        description: '是否标记为预发布'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -69,10 +80,18 @@ jobs:
       - name: Build release binary
         run: cargo build --release --locked
 
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          fi
+
       - name: Stage artifacts
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME}"
           PKG_NAME="${{ env.BIN_NAME }}-${VERSION}-${{ matrix.target_name }}"
           STAGE_DIR="dist/${PKG_NAME}"
           mkdir -p "${STAGE_DIR}"
@@ -98,7 +117,9 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
           files: ${{ env.ASSET_PATH }}
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
