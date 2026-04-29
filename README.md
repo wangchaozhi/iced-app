@@ -84,6 +84,7 @@ cargo build --release
 │       ├── mod.rs                   # 视图模块入口
 │       └── login.rs                 # 登录界面组件（顶栏/输入/按钮/底栏）
 ├── .github/workflows/ci.yml         # 多平台 CI（Windows / macOS / Ubuntu 22.04）
+├── .github/workflows/release.yml    # 打 tag 自动发布 GitHub Release
 ├── Cargo.toml
 └── Cargo.lock
 ```
@@ -108,6 +109,21 @@ cargo build --release
 
 - 用户名：`admin`
 - 密码：`123456`
+
+## 发布 Release
+
+推送形如 `v0.1.0` 的 Git tag 即可触发 [release.yml](.github/workflows/release.yml)，自动构建三平台产物并上传到 GitHub Releases：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+产物命名规则：
+
+- `rustgui-v0.1.0-windows-x86_64.zip`
+- `rustgui-v0.1.0-macos-aarch64.tar.gz`
+- `rustgui-v0.1.0-linux-x86_64.tar.gz`
 
 ## License
 

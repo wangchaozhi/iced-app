@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BIN_NAME: rustgui
+
+jobs:
+  build-release:
+    name: build-${{ matrix.target_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target_name: windows-x86_64
+            bin_suffix: .exe
+            archive_ext: zip
+          - os: macos-latest
+            target_name: macos-aarch64
+            bin_suffix: ''
+            archive_ext: tar.gz
+          - os: ubuntu-22.04
+            target_name: linux-x86_64
+            bin_suffix: ''
+            archive_ext: tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-release-
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libvulkan-dev \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libfontconfig1-dev
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Stage artifacts
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          PKG_NAME="${{ env.BIN_NAME }}-${VERSION}-${{ matrix.target_name }}"
+          STAGE_DIR="dist/${PKG_NAME}"
+          mkdir -p "${STAGE_DIR}"
+          cp "target/release/${{ env.BIN_NAME }}${{ matrix.bin_suffix }}" "${STAGE_DIR}/"
+          cp README.md "${STAGE_DIR}/" || true
+          echo "PKG_NAME=${PKG_NAME}" >> "$GITHUB_ENV"
+          echo "STAGE_DIR=${STAGE_DIR}" >> "$GITHUB_ENV"
+
+      - name: Archive (zip) on Windows
+        if: matrix.archive_ext == 'zip'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "${{ env.STAGE_DIR }}\*" -DestinationPath "dist\${{ env.PKG_NAME }}.zip"
+          "ASSET_PATH=dist/${{ env.PKG_NAME }}.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Archive (tar.gz) on Unix
+        if: matrix.archive_ext == 'tar.gz'
+        shell: bash
+        run: |
+          tar -czf "dist/${PKG_NAME}.tar.gz" -C dist "${PKG_NAME}"
+          echo "ASSET_PATH=dist/${PKG_NAME}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET_PATH }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
