@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  BIN_NAME: rustgui
 
 jobs:
   build:
@@ -16,7 +17,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-22.04]
+        include:
+          - os: windows-latest
+            target_name: windows-x86_64
+            bin_suffix: .exe
+          - os: macos-latest
+            target_name: macos-aarch64
+            bin_suffix: ''
+          - os: ubuntu-22.04
+            target_name: linux-x86_64
+            bin_suffix: ''
 
     steps:
       - name: Checkout
@@ -58,3 +68,12 @@ jobs:
 
       - name: cargo build --release
         run: cargo build --release
+
+      - name: Upload build artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BIN_NAME }}-${{ matrix.target_name }}-${{ github.sha }}
+          path: target/release/${{ env.BIN_NAME }}${{ matrix.bin_suffix }}
+          if-no-files-found: error
+          retention-days: 30
