@@ -3,6 +3,7 @@
 use iced::{Element, Task, Theme};
 
 use crate::message::{Message, Status};
+use crate::platform;
 use crate::services::fake_login;
 use crate::views::login::{self, LoginViewData};
 
@@ -66,7 +67,14 @@ impl LoginApp {
                 Task::none()
             }
             Message::CloseWindow => iced::exit(),
-            Message::StartDrag => iced::window::latest().and_then(iced::window::drag),
+            Message::StartDrag => {
+                // macOS 等使用原生装饰的平台由系统标题栏处理拖动，这里不触发自绘拖动。
+                if platform::supports_custom_drag() {
+                    iced::window::latest().and_then(iced::window::drag)
+                } else {
+                    Task::none()
+                }
+            }
             Message::LoginPressed => {
                 if self.username.trim().is_empty() || self.password.is_empty() {
                     self.status = Status::Failed("用户名和密码不能为空".into());
