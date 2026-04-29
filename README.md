@@ -130,6 +130,7 @@ git push origin v0.1.0
 - `rustgui-v0.1.0-windows-x86_64.zip`
 - `rustgui-v0.1.0-macos-aarch64.tar.gz`
 - `rustgui-v0.1.0-linux-x86_64.tar.gz`
+- `rustgui-v0.1.0-linux-x86_64.AppImage`（在 Ubuntu 20.04 容器中构建，glibc ≺ 2.31 的发行版均可运行）
 
 ## License
 

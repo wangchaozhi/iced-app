@@ -124,3 +124,86 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+
+  build-appimage:
+    name: build-appimage-linux-x86_64
+    runs-on: ubuntu-22.04
+    container:
+      image: ubuntu:20.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - name: Install base packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            curl wget ca-certificates file git xz-utils sudo \
+            build-essential pkg-config \
+            libxkbcommon-dev libwayland-dev libvulkan-dev libgl1-mesa-dev \
+            libx11-dev libxcursor-dev libxrandr-dev libxi-dev libfontconfig1-dev \
+            imagemagick desktop-file-utils
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Resolve version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Prepare AppDir
+        run: |
+          APPDIR="$(pwd)/AppDir"
+          mkdir -p "$APPDIR/usr/bin"
+          cp "target/release/${{ env.BIN_NAME }}" "$APPDIR/usr/bin/"
+          cat > rustgui.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=RustGUI
+          Comment=Iced-based Rust GUI login demo
+          Exec=rustgui
+          Icon=rustgui
+          Categories=Utility;
+          Terminal=false
+          EOF
+          convert -size 256x256 xc:'#1e1e2e' rustgui.png
+          echo "APPDIR=$APPDIR" >> "$GITHUB_ENV"
+
+      - name: Download linuxdeploy
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+
+      - name: Package AppImage
+        run: |
+          OUTPUT="${{ env.BIN_NAME }}-${VERSION}-linux-x86_64.AppImage" \
+            ./linuxdeploy-x86_64.AppImage \
+              --appdir "${APPDIR}" \
+              --executable "${APPDIR}/usr/bin/${{ env.BIN_NAME }}" \
+              --desktop-file rustgui.desktop \
+              --icon-file rustgui.png \
+              --output appimage
+          APPIMAGE_NAME="${{ env.BIN_NAME }}-${VERSION}-linux-x86_64.AppImage"
+          echo "APPIMAGE_PATH=$(pwd)/${APPIMAGE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload AppImage to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
+          files: ${{ env.APPIMAGE_PATH }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
