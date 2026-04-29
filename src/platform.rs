@@ -12,9 +12,40 @@ pub struct WindowStyle {
 
 /// 根据平台初始化 wgpu 后端环境变量，并返回推荐的窗口视觉策略。
 pub fn init() -> WindowStyle {
+    ensure_xdg_runtime_dir();
     set_backend_env();
     window_style()
 }
+
+/// Linux 下当 `XDG_RUNTIME_DIR` 未设置时自动兆底到 `/tmp/runtime-<user>`，
+/// 避免在 SSH / 无会话 / Docker 等环境下启动 panic。
+/// 其他平台不需要此变量，空实现。
+#[cfg(all(unix, not(target_os = "macos")))]
+fn ensure_xdg_runtime_dir() {
+    if std::env::var_os("XDG_RUNTIME_DIR").is_some() {
+        return;
+    }
+    let user = std::env::var("USER")
+        .or_else(|_| std::env::var("LOGNAME"))
+        .unwrap_or_else(|_| "rustgui".to_string());
+    let fallback = std::env::temp_dir().join(format!("runtime-{user}"));
+    if let Err(e) = std::fs::create_dir_all(&fallback) {
+        eprintln!(
+            "[platform] 无法创建 XDG_RUNTIME_DIR 兆底目录 {}: {e}",
+            fallback.display()
+        );
+        return;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&fallback, std::fs::Permissions::from_mode(0o700));
+    }
+    std::env::set_var("XDG_RUNTIME_DIR", &fallback);
+}
+
+#[cfg(not(all(unix, not(target_os = "macos"))))]
+fn ensure_xdg_runtime_dir() {}
 
 #[cfg(target_os = "windows")]
 fn set_backend_env() {
